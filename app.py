@@ -177,6 +177,83 @@ with tab_simulation:
         st.info("ℹ️ Run the credit prediction and simulation to view the comparison chart.")
 
 
+    # =====================================================
+    # 💰 Repayment Schedule Simulator
+    # =====================================================
+    st.markdown("### 💰 Repayment Schedule Simulator")
+    st.write(
+        "Simulate how the suggested loan amount would be repaid monthly "
+        "based on the predicted interest rate."
+    )
+
+    # Only run if a loan has been computed from either prediction or simulation
+    loan_amount = st.session_state.get("loan_amount", None)
+    interest_rate = st.session_state.get("interest_rate", None)
+
+    # If simulation ran, reuse latest; otherwise, prompt user
+    if "new_score" in st.session_state and "new_prob" in st.session_state:
+        # Estimate loan and rate again from latest dynamic sample
+        est_rate = 0.12 + st.session_state["new_prob"] * 0.5
+        est_amount = min(sample["farm_size"].values[0] * 300, 50000)
+    elif "base_prob" in st.session_state:
+        est_rate = 0.12 + st.session_state["base_prob"] * 0.5
+        est_amount = min(sample["farm_size"].values[0] * 300, 50000)
+    else:
+        est_rate = None
+        est_amount = None
+
+    if est_rate is not None and est_amount is not None:
+        colA, colB = st.columns(2)
+        with colA:
+            months = st.slider("Repayment period (months)", 3, 24, 12)
+        with colB:
+            rate = st.number_input(
+                "Annual interest rate (%)", 1.0, 60.0, round(est_rate * 100, 2)
+            )
+
+        # Compute monthly payment using annuity formula
+        r = rate / 100 / 12
+        n = months
+        P = est_amount
+        monthly_payment = (P * r) / (1 - (1 + r) ** -n)
+
+        # Build amortization schedule
+        schedule = []
+        balance = P
+        for i in range(1, n + 1):
+            interest = balance * r
+            principal = monthly_payment - interest
+            balance -= principal
+            schedule.append(
+                {
+                    "Month": i,
+                    "Principal": round(principal, 2),
+                    "Interest": round(interest, 2),
+                    "Payment": round(monthly_payment, 2),
+                    "Remaining Balance": round(max(balance, 0), 2),
+                }
+            )
+
+        df = pd.DataFrame(schedule)
+
+        st.write(f"**Loan Amount:** KES {P:,.0f}")
+        st.write(f"**Monthly Payment:** KES {monthly_payment:,.2f}")
+        st.write(f"**Total Payment:** KES {df['Payment'].sum():,.2f}")
+        st.write(f"**Total Interest:** KES {df['Interest'].sum():,.2f}")
+
+        # Show table and plot
+        st.dataframe(df, use_container_width=True, hide_index=True)
+
+        st.markdown("#### 📊 Repayment Progress")
+        fig, ax = plt.subplots()
+        ax.plot(df["Month"], df["Remaining Balance"], marker="o")
+        ax.set_xlabel("Month")
+        ax.set_ylabel("Remaining Balance (KES)")
+        ax.set_title("Loan Amortization Curve")
+        st.pyplot(fig)
+    else:
+        st.info("ℹ️ Run a credit prediction or simulation first to generate a loan estimate.")
+
 
 # =====================================================
 # TAB 3: MODEL DASHBOARD
