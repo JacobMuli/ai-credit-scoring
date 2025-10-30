@@ -147,18 +147,38 @@ with tab_dashboard:
     st.pyplot(fig)
 
     # --- Feature Importance ---
-    st.subheader("🌿 Top 10 Most Important Features")
+st.subheader("🌿 Top 10 Most Important Features")
+try:
+    preprocessor = model.named_steps["pre"]
+    clf = model.named_steps["clf"]
+
+    # Extract transformed feature names safely
+    # Works for sklearn >= 1.0
     try:
-        ohe = model.named_steps["pre"].named_transformers_["cat"]
-        cat_features = ["gender", "crop"]
-        ohe_names = list(ohe.get_feature_names_out(cat_features))
+        feature_names = preprocessor.get_feature_names_out()
+    except:
+        # Fallback for older sklearn versions
         num_features = ["age","farm_size","yield_hist","mobile_txns","mobile_balance","ndvi","cooperative","drought_exposure"]
+        cat_features = ["gender","crop"]
+        ohe = preprocessor.named_transformers_["cat"]
+        ohe_names = list(ohe.get_feature_names_out(cat_features))
         feature_names = num_features + ohe_names
-        importances = model.named_steps["clf"].feature_importances_
-        feat_imp = pd.DataFrame({"Feature": feature_names, "Importance": importances})
-        feat_imp = feat_imp.sort_values("Importance", ascending=False)
+
+    importances = clf.feature_importances_
+
+    # Ensure equal length
+    if len(importances) == len(feature_names):
+        feat_imp = pd.DataFrame({
+            "Feature": feature_names,
+            "Importance": importances
+        }).sort_values("Importance", ascending=False)
+
         fig, ax = plt.subplots(figsize=(8, 5))
         sns.barplot(data=feat_imp.head(10), x="Importance", y="Feature", ax=ax)
+        ax.set_title("Top 10 Most Important Features")
         st.pyplot(fig)
-    except Exception as e:
-        st.warning(f"⚠️ Could not display feature importance: {e}")
+    else:
+        st.warning(f"⚠️ Feature importance mismatch: expected {len(importances)}, got {len(feature_names)} names.")
+except Exception as e:
+    st.error(f"❌ Could not display feature importance: {e}")
+
