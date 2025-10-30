@@ -108,6 +108,9 @@ with tab_simulation:
     st.subheader("⚙️ Dynamic Risk & What-If Simulation")
     st.write("Simulate how environmental or behavioral changes affect the farmer’s credit score and eligibility.")
 
+    # Default placeholder values to avoid NameError
+    new_score = None
+
     col1, col2 = st.columns(2)
     with col1:
         st.write("Adjust Farmer Parameters:")
@@ -123,68 +126,56 @@ with tab_simulation:
     if st.button("🔁 Run Simulation"):
         base = sample.copy()
         dynamic = base.copy()
-    
-        # Ensure numeric types for safe arithmetic operations
         dynamic = dynamic.apply(pd.to_numeric, errors="ignore")
-    
-        # Handle single-row safely
-        dynamic.loc[:, "ndvi"] = float(np.clip(dynamic.loc[:, "ndvi"] + delta_ndvi, 0.05, 0.9))
-        dynamic.loc[:, "mobile_txns"] = float(np.maximum(dynamic.loc[:, "mobile_txns"] + delta_txns, 0))
-        dynamic.loc[:, "yield_hist"] = float(np.maximum(dynamic.loc[:, "yield_hist"] + delta_yield, 0.1))
-    
-        # Apply shocks
+
+        # Apply parameter changes safely
+        dynamic["ndvi"] = np.clip(dynamic["ndvi"] + delta_ndvi, 0.05, 0.9)
+        dynamic["mobile_txns"] = np.maximum(dynamic["mobile_txns"] + delta_txns, 0)
+        dynamic["yield_hist"] = np.maximum(dynamic["yield_hist"] + delta_yield, 0.1)
+
+        # Apply scenario shocks
         if drought_shock:
-            dynamic.loc[:, "drought_exposure"] = 1
+            dynamic["drought_exposure"] = 1
         if price_drop:
-            dynamic.loc[:, "mobile_balance"] = dynamic.loc[:, "mobile_balance"] * 0.8
+            dynamic["mobile_balance"] = dynamic["mobile_balance"] * 0.8
         if repayment_delay:
-            dynamic.loc[:, "cooperative"] = 0
-    
-        # Predict new credit score
+            dynamic["cooperative"] = 0
+
+        # Predict updated risk
         new_score, new_prob, eligible, loan_amount, interest_rate = predict_credit(model, dynamic)
-    
-        # Display results
+
+        # Save results for persistence
+        st.session_state["new_score"] = float(new_score)
+        st.session_state["new_prob"] = float(new_prob)
+
+        # Display updated metrics
         st.metric("New Credit Score", f"{new_score:.0f}", delta=f"{new_score - st.session_state.get('base_score', new_score):.1f}")
         st.metric("New Default Probability", f"{new_prob:.2%}", delta=f"{(new_prob - st.session_state.get('base_prob', new_prob))*100:.2f}%")
-    
+
         if eligible:
             st.success("✅ Still eligible for credit.")
         else:
             st.warning("⚠️ Farmer now ineligible due to increased risk.")
-    
-        # Visualization — only render after successful simulation
-        st.markdown("#### 📈 Credit Score Comparison")
-    
-        # Save simulation result to session for persistence
-        st.session_state["new_score"] = float(new_score)
-    
-        # Retrieve both safely
-        base_score = st.session_state.get("base_score")
-        updated_score = st.session_state.get("new_score")
-    
-        # Only draw if we have valid values
-        if base_score is not None and updated_score is not None:
-            # Convert to scalar floats
-            base_score = float(np.ravel(base_score)[0]) if hasattr(base_score, "__len__") else float(base_score)
-            updated_score = float(np.ravel(updated_score)[0]) if hasattr(updated_score, "__len__") else float(updated_score)
-    
-            fig, ax = plt.subplots()
-            ax.bar(["Base", "Updated"], [base_score, updated_score], color=["#4CAF50", "#FF9800"])
-            ax.set_ylabel("Credit Score")
-            ax.set_ylim(0, 1000)
-            ax.set_title("Credit Score Before vs After Simulation")
-            st.pyplot(fig)
-        else:
-            st.info("ℹ️ Run a credit prediction and simulation to view comparison chart.")
 
-
-    # Visualization
+    # ---- Visualization (only render if simulation ran) ----
     st.markdown("#### 📈 Credit Score Comparison")
-    fig, ax = plt.subplots()
-    ax.bar(["Base", "Updated"], [st.session_state.get("base_score", new_score), new_score], color=["#4CAF50", "#FF9800"])
-    ax.set_ylabel("Credit Score")
-    ax.set_ylim(0, 1000)
-    st.pyplot(fig)
+
+    base_score = st.session_state.get("base_score")
+    updated_score = st.session_state.get("new_score")
+
+    if base_score is not None and updated_score is not None:
+        base_score = float(np.ravel(base_score)[0]) if hasattr(base_score, "__len__") else float(base_score)
+        updated_score = float(np.ravel(updated_score)[0]) if hasattr(updated_score, "__len__") else float(updated_score)
+
+        fig, ax = plt.subplots()
+        ax.bar(["Base", "Updated"], [base_score, updated_score], color=["#4CAF50", "#FF9800"])
+        ax.set_ylabel("Credit Score")
+        ax.set_ylim(0, 1000)
+        ax.set_title("Credit Score Before vs After Simulation")
+        st.pyplot(fig)
+    else:
+        st.info("ℹ️ Run the credit prediction and simulation to view the comparison chart.")
+
 
 
 # =====================================================
