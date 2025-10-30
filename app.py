@@ -121,32 +121,42 @@ with tab_simulation:
         repayment_delay = st.checkbox("⌛ Repayment Delay Risk?")
 
     if st.button("🔁 Run Simulation"):
-        base = sample.copy()
-        dynamic = base.copy()
-        dynamic["ndvi"] = np.clip(dynamic["ndvi"] + delta_ndvi, 0.05, 0.9)
-        dynamic["mobile_txns"] = max(dynamic["mobile_txns"] + delta_txns, 0)
-        dynamic["yield_hist"] = max(dynamic["yield_hist"] + delta_yield, 0.1)
+    base = sample.copy()
+    dynamic = base.copy()
+    
+    # Apply delta adjustments safely
+    dynamic["ndvi"] = np.clip(dynamic["ndvi"] + delta_ndvi, 0.05, 0.9)
+    dynamic["mobile_txns"] = np.maximum(dynamic["mobile_txns"] + delta_txns, 0)
+    dynamic["yield_hist"] = np.maximum(dynamic["yield_hist"] + delta_yield, 0.1)
 
-        if drought_shock: dynamic["drought_exposure"] = 1
-        if price_drop: dynamic["mobile_balance"] *= 0.8
-        if repayment_delay: dynamic["cooperative"] = 0
+    # Apply scenario shocks
+    if drought_shock:
+        dynamic["drought_exposure"] = 1
+    if price_drop:
+        dynamic["mobile_balance"] = dynamic["mobile_balance"] * 0.8
+    if repayment_delay:
+        dynamic["cooperative"] = 0
 
-        new_score, new_prob, eligible, loan_amount, interest_rate = predict_credit(model, dynamic)
+    # Predict updated risk
+    new_score, new_prob, eligible, loan_amount, interest_rate = predict_credit(model, dynamic)
 
-        st.metric("New Credit Score", f"{new_score:.0f}", delta=f"{new_score - st.session_state.get('base_score', new_score):.1f}")
-        st.metric("New Default Probability", f"{new_prob:.2%}", delta=f"{(new_prob - st.session_state.get('base_prob', new_prob))*100:.2f}%")
+    # Display metrics
+    st.metric("New Credit Score", f"{new_score:.0f}", delta=f"{new_score - st.session_state.get('base_score', new_score):.1f}")
+    st.metric("New Default Probability", f"{new_prob:.2%}", delta=f"{(new_prob - st.session_state.get('base_prob', new_prob))*100:.2f}%")
 
-        if eligible:
-            st.success("✅ Still eligible for credit.")
-        else:
-            st.warning("⚠️ Farmer now ineligible due to increased risk.")
+    if eligible:
+        st.success("✅ Still eligible for credit.")
+    else:
+        st.warning("⚠️ Farmer now ineligible due to increased risk.")
 
-        st.markdown("#### 📈 Credit Score Comparison")
-        fig, ax = plt.subplots()
-        ax.bar(["Base", "Updated"], [st.session_state.get("base_score", new_score), new_score], color=["#4CAF50", "#FF9800"])
-        ax.set_ylabel("Credit Score")
-        ax.set_ylim(0, 1000)
-        st.pyplot(fig)
+    # Visualization
+    st.markdown("#### 📈 Credit Score Comparison")
+    fig, ax = plt.subplots()
+    ax.bar(["Base", "Updated"], [st.session_state.get("base_score", new_score), new_score], color=["#4CAF50", "#FF9800"])
+    ax.set_ylabel("Credit Score")
+    ax.set_ylim(0, 1000)
+    st.pyplot(fig)
+
 
 # =====================================================
 # TAB 3: MODEL DASHBOARD
