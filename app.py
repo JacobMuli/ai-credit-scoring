@@ -6,19 +6,35 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pickle
 import os
+import gzip, requests, io
 from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix, classification_report
 
 # --- Page setup ---
 st.set_page_config(page_title="🌾 AI Credit Scoring", layout="wide")
 
 # --- Load model ---
-MODEL_PATH = "credit_model.pkl"
-if not os.path.exists(MODEL_PATH):
-    st.error("❌ Model file not found! Please upload 'credit_model.pkl' to your repo.")
-    st.stop()
+MODEL_PATH = "credit_model.pkl.gz"
+GITHUB_REPO_URL = "https://github.com/JacobMuli/ai-credit-scoring/raw/main/credit_model.pkl.gz"
 
-with open(MODEL_PATH, "rb") as f:
-    model = pickle.load(f)
+# Try to load from local file first
+try:
+    if os.path.exists(MODEL_PATH):
+        with gzip.open(MODEL_PATH, "rb") as f:
+            model = pickle.load(f)
+        st.success("✅ Model loaded locally (credit_model.pkl.gz)")
+    else:
+        # Fallback: download from GitHub if not found locally
+        st.warning("📥 Local model not found. Downloading from GitHub...")
+        response = requests.get(GITHUB_REPO_URL)
+        if response.status_code == 200:
+            model = pickle.load(io.BytesIO(response.content))
+            st.success("✅ Model loaded from GitHub successfully!")
+        else:
+            st.error("❌ Failed to download model from GitHub. Please check the file path.")
+            st.stop()
+except Exception as e:
+    st.error(f"⚠️ Error loading model: {e}")
+    st.stop()
 
 st.title("🌾 AI Credit Scoring for Smallholder Farmers")
 
