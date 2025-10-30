@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix
-import seaborn as sns
 import pickle, os, numpy as np
+import seaborn as sns
 
 st.set_page_config(page_title="🌾 AI Credit Scoring", layout="wide")
 
