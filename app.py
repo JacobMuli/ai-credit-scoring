@@ -152,13 +152,26 @@ with tab_simulation:
         else:
             st.warning("⚠️ Farmer now ineligible due to increased risk.")
     
-        # Visualization
-        st.markdown("#### 📈 Credit Score Comparison")
-        fig, ax = plt.subplots()
-        ax.bar(["Base", "Updated"], [st.session_state.get("base_score", new_score), new_score], color=["#4CAF50", "#FF9800"])
-        ax.set_ylabel("Credit Score")
-        ax.set_ylim(0, 1000)
-        st.pyplot(fig)
+    # Visualization
+    st.markdown("#### 📈 Credit Score Comparison")
+
+    # Safely fetch previous and updated scores
+    base_score = st.session_state.get("base_score", None)
+    if base_score is None:
+        base_score = float(new_score)  # fallback to new score if no baseline yet
+
+    # Convert to scalars (in case any are numpy or pandas types)
+    base_score = float(np.ravel(base_score)[0]) if hasattr(base_score, "__len__") else float(base_score)
+    updated_score = float(np.ravel(new_score)[0]) if hasattr(new_score, "__len__") else float(new_score)
+
+    # Create comparison chart
+    fig, ax = plt.subplots()
+    ax.bar(["Base", "Updated"], [base_score, updated_score], color=["#4CAF50", "#FF9800"])
+    ax.set_ylabel("Credit Score")
+    ax.set_ylim(0, 1000)
+    ax.set_title("Credit Score Before vs After Simulation")
+    st.pyplot(fig)
+
 
 
     # Visualization
