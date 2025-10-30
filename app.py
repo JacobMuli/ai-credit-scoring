@@ -37,7 +37,9 @@ if model is None:
 
 # Sidebar inputs
 with st.sidebar:
+    st.divider()
     st.markdown("### 📋 Farmer Profile")
+    ...
     st.write("Fill in the farmer’s details below:")
 
     gender = st.selectbox("Gender", ["Male", "Female"])
