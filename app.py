@@ -121,8 +121,8 @@ with tab_simulation:
         repayment_delay = st.checkbox("⌛ Repayment Delay Risk?")
 
     if st.button("🔁 Run Simulation"):
-    base = sample.copy()
-    dynamic = base.copy()
+        base = sample.copy()
+        dynamic = base.copy()
     
     # Apply delta adjustments safely
     dynamic["ndvi"] = np.clip(dynamic["ndvi"] + delta_ndvi, 0.05, 0.9)
